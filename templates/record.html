@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Speech Emotion Recognition</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-image: url('https://www.pixelstalk.net/wp-content/uploads/images5/Cool-Green-and-Black-Wallpaper-HD.jpg');
+      background-repeat: no-repeat;
+      background-size:cover; 
+
+    }
+    h1 {
+  position: absolute;
+  top: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: bold;
+  margin: 0;
+  color:white
+}
+a {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: #333;
+  text-decoration: none;
+  font-size: 16px;
+  padding: 15px;
+}
+#home, #option {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 18px;
+  text-decoration: none;
+  color:white;
+  margin-left: 10px;
+}
+
+#home {
+  right: 150px;
+}
+    #buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      margin-top: 150px;
+      /* background-color: rgba(255, 255, 255, 0.8); */
+      /* background-color: red; */
+    }
+   
+  
+    #emotionResultBox {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Add box shadow for a better visual effect */
+      margin-top: 20px; /* Adjust margin as needed */
+  }
+  
+    #emotionChartContainer {
+      width: 300px;
+      height: 300px;
+    }
+    #startButton, #stopButton {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    #startButton:disabled, #stopButton:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .recording {
+      animation: recording 1s infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+      margin-top: 30px ;
+     margin-bottom: 30px;
+    }
+    @keyframes recording {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <a href="home.html" id="home">Home Page</a>
+  <a href="option.html" id="option">Option Page</a>
+  <h1>Record Audio</h1>
+  <div id="buttons">
+    <button id="startButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <span class="recording" style="display: none;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="24" height="24"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm141.8 212.2c-12.5 12.5-32.8 12.5-45.3 0l-90.6-90.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L338 177.7c12.5 12.5 12.5 32.8 0 45.3z"/></svg>
+    </span>
+  </div>
+  <audio id="recordedAudio" controls></audio>
+
+
+<div id="emotionResultBox" style="display: none; background-color: white; padding: 20px; border-radius: 8px;">
+  <p id="result"></p>
+  <div id="emotionChartContainer">
+      <canvas id="emotionChart"></canvas>
+  </div>
+</div>
+
+  <!-- <div id="emotionResultBox">
+    <p id="result"></p>
+    <div id="emotionChartContainer">
+      <canvas id="emotionChart"></canvas>
+    </div>
+  </div> -->
+  <script>
+    let mediaRecorder;
+    let recordedChunks = [];
+    let emotionChart; // Initialize the chart instance outside the event listener
+
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const result = document.getElementById('result');
+    const recordedAudio = document.getElementById('recordedAudio');
+    const recordingAnimation = document.querySelector('.recording');
+
+    startButton.addEventListener('click', () => {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          recordingAnimation.style.display = "inline-block";
+
+          mediaRecorder.addEventListener('dataavailable', event => {
+            if (event.data.size > 0) {
+              recordedChunks.push(event.data);
+            }
+          });
+        })
+        .catch(console.error);
+    });
+
+    stopButton.addEventListener('click', () => {
+      mediaRecorder.stop();
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      recordingAnimation.style.display = "none";
+    
+      mediaRecorder.addEventListener('stop', () => {
+        const recordedBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+        recordedChunks = [];
+    
+        const formData = new FormData();
+        formData.append('audio', recordedBlob);
+    
+        fetch('/api/recognize', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          result.textContent = `Emotion: ${data.emotion} | Confidence: ${data.confidence}`;
+    
+          // Destroy the existing chart instance, if it exists
+          if (emotionChart) {
+            emotionChart.destroy();
+          }
+    
+          // Create pie chart
+          const ctx = document.getElementById('emotionChart').getContext('2d');
+          emotionChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: data.emotion_labels,
+              datasets: [{
+                label: 'Emotions',
+                data: data.emotion_scores,
+                backgroundColor: [
+                  'rgb(255, 99, 132)',
+                  'rgb(54, 162, 235)',
+                  'rgb(255, 206, 86)',
+                  'rgb(75, 192, 192)',
+                  'rgb(153, 102, 255)'
+                ],
+                borderWidth: 1
+              }]
+            },
+            options: {
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'right',
+                },
+                title: {
+                  display: true,
+                  text: 'Emotion Scores'
+                },
+                animation: {
+                  animateScale: true,
+                  animateRotate: true,
+                  duration: 1000, // Animation duration in milliseconds
+                  easing: 'easeOutQuart', // Animation easing function
+                  onComplete: function() {
+                    // You can add custom code to execute after the animation is complete
+                  }
+                }
+              }
+            }
+          });
+    
+          // Show the emotion result box
+          document.getElementById('emotionResultBox').style.display = "block";
+        })
+        .catch(console.error);
+    
+        recordedAudio.src = URL.createObjectURL(recordedBlob);
+        recordedAudio.load();
+      });
+    });
+    
+  </script>
+</body>
+</html>

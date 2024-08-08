@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech Emotion Recognition</title>
+</head>
+<body>
+    <!-- Top grey taskbar -->
+    <div class="task-bar"></div>
+    
+    <div class="container">
+        <a href="upload.html" class="card animate__animated animate__slideInDown" id="card1">
+            <div class="card-content">
+                <span>UPLOAD</span>
+            </div>
+        </a>
+        <a href="record.html" class="card animate__animated animate__slideInDown" id="card2">
+            <div class="card-content">
+                <span>RECORD</span>
+            </div>
+        </a>
+    </div>
+
+    <!-- "Go Home" Button -->
+    <div class="bottom-button" id="home">
+        <button class="go-home-btn"> Back</button>
+    </div>
+  
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            var file = event.target.files[0];
+            var audioPlayer = document.getElementById('audioPlayer');
+
+            // Clear previous audio player content
+            audioPlayer.innerHTML = '';
+
+            if (file) {
+                var audio = document.createElement('audio');
+                audio.setAttribute('controls', true);
+
+                var source = document.createElement('source');
+                source.src = URL.createObjectURL(file);
+                source.type = 'audio/mpeg'; // Adjust according to the file type
+
+                audio.appendChild(source);
+                audioPlayer.appendChild(audio);
+            }
+        });
+    </script>
+    <script>
+      document.getElementById("home").addEventListener("click", function () {
+          window.location.href = "home.html";
+      });
+      // JavaScript code for handling file upload, audio recording, and backend integration
+      // Implement the logic based on your project requirements
+  </script>
+</body>
+<style>
+    body {
+        background-image: linear-gradient(rgba(0,0,0,0.1),rgba(0,0,0,0.9)), url('static/images/green.jpg');
+        background-repeat: no-repeat;
+        background-size: cover; 
+        background-position: center;
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        margin: 0; /* Remove default body margin */
+    }
+
+    /* Top grey taskbar */
+    .task-bar {
+        background-color: #333; /* Grey color for the task bar */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5vh; /* Height of the task bar */
+    }
+
+    .container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+
+    .card {
+        width: 300px;
+        height: 300px;
+        background-image: url('static/images/up.avif');
+        
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 70px;
+        border-radius: 25px;
+        border: 2px solid #333; /* Add border */
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        text-decoration: none;
+        color: white; /* Change text color to white */
+        position: relative; /* Add position relative */
+    }
+
+    .card-content {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
+    .card-content span {
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    /* Animation classes */
+    @keyframes slideInDown {
+        from {
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .animate__slideInDown {
+        animation: slideInDown 0.5s ease forwards;
+    }
+
+    /* Bottom button styles */
+    .bottom-button {
+        position: absolute;
+        bottom: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .go-home-btn {
+        padding: 30px 40px;
+        font-size: 38px;
+        border: none;
+        border-radius: 55px;
+        background-color: #08afb1;
+        color: white;
+        cursor: pointer;
+    }
+</style>
+</html>

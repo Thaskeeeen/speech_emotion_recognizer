@@ -1,0 +1,499 @@
+<!-- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Emotion Recognition</title>
+    <style>
+        /* Your CSS styles */
+        
+        body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+    h1, h2 {
+        color: #333;
+    }
+    button {
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 10px 5px;
+        cursor: pointer;
+        border-radius: 4px;
+        user-select: none;
+        transition: background-color 0.3s;
+    }
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+        background-color: #3e8e41;
+    }
+    h1, h2 {
+        color: #333;
+    }
+    button {
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 10px 5px;
+        cursor: pointer;
+        border-radius: 4px;
+        user-select: none;
+        transition: background-color 0.3s;
+    }
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+        background-color: #3e8e41;
+    }
+    .predictions-section {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+    }
+</style>
+</head>
+
+</style>
+</head>
+<body>
+<h1>Upload or Record Audio</h1>
+
+<div id="upload-section">
+    <h2>Upload audio:</h2>
+    <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
+        <input type="file" name="audio" id="uploaded_audio" accept="audio/*" capture>
+        <button type="submit" id="upload-file-btn">Upload</button>
+    </form>
+    <div id="upload-predictions" class="predictions-section"></div>
+</div>
+
+<div id="record-section">
+    <h2>Record audio:</h2>
+    <button id="start-recording-btn">Start Recording</button>
+    <button id="stop-recording-btn" disabled>Stop Recording</button>
+    <button id="play-recording-btn" disabled>Play Recording</button>
+    <button id="upload-recording-btn" disabled>Upload Recording</button>
+    <br><br>
+    <audio id="recorded-audio" controls></audio>
+    <div id="record-predictions" class="predictions-section"></div>
+</div>
+
+<script>
+    let mediaRecorder;
+    let recordedChunks = [];
+    const startRecordingBtn = document.getElementById('start-recording-btn');
+    const stopRecordingBtn = document.getElementById('stop-recording-btn');
+    const playRecordingBtn = document.getElementById('play-recording-btn');
+    const uploadRecordingBtn = document.getElementById('upload-recording-btn');
+    const uploadfileBtn=document.getElementById('upload-file-btn');
+    const recordedAudio = document.getElementById('recorded-audio');
+    const uploadPredictionsDiv = document.getElementById('upload-predictions');
+    const recordPredictionsDiv = document.getElementById('record-predictions');
+
+    startRecordingBtn.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.addEventListener('dataavailable', (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            });
+
+            mediaRecorder.addEventListener('start', () => {
+                stopRecordingBtn.disabled = false; // Enable stopRecordingBtn when recording starts
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                const blob = new Blob(recordedChunks, { type: 'audio/wav' }); // Change type to audio/wav
+                recordedChunks = [];
+                uploadRecordingBtn.disabled = false;
+                playRecordingBtn.disabled = false;
+                const url = URL.createObjectURL(blob);
+                recordedAudio.src = url;
+                recordedAudio.load();
+                // Update the form data with the recorded audio blob
+                const formData = new FormData();
+                formData.append('recorded_audio', blob);
+
+                // Upload the recorded audio and display predictions
+                uploadRecording(formData, recordPredictionsDiv);
+            });
+
+            mediaRecorder.start();
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, 9000); // Stop recording after 5 seconds
+
+        } catch (error) {
+            console.error('Error starting recording:', error);
+        }
+    });
+
+    stopRecordingBtn.addEventListener('click', () => {
+        mediaRecorder.stop();
+    });
+
+    playRecordingBtn.addEventListener('click', () => {
+        recordedAudio.play();
+    });
+
+    uploadRecordingBtn.addEventListener('click', () => {
+        const formData = new FormData(document.getElementById('upload-form'));
+        // const formData = new FormData(recordedAudio);
+
+        uploadRecording(formData, recordPredictionsDiv);
+    });
+
+    // uploadfileBtn.addEventListener('click', () => {
+    //     const formData = new FormData(uploadfileBtn);
+    //     uploadRecording(formData, uploadPredictionsDiv);
+    // });
+
+    function uploadRecording(formData, predictionsDiv) {
+        fetch('/predict', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Predictions:', data.predictions);
+            displayPredictions(data.predictions, predictionsDiv);
+        })
+        .catch(error => {
+            console.error('Error uploading recording:', error);
+        });
+    }
+
+    function displayPredictions(predictions, predictionsDiv) {
+        predictionsDiv.innerHTML = '<h3>Predictions:</h3>';
+        const list = document.createElement('ul');
+        predictions.forEach(prediction => {
+            const item = document.createElement('li');
+            item.textContent = prediction;
+            list.appendChild(item);
+        });
+        predictionsDiv.appendChild(list);
+    }
+</script>
+</body>
+</html> -->
+<!-- ////////////////////////////////// //////////////////////////////-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Emotion Recognition</title>
+    <style>
+        /* Your CSS styles */
+
+        body {
+  font-family: Arial, sans-serif;
+  max-width: 1000px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 40px;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  /*background-image: url('static/images/speech_bg4.png');*/
+  background-image: url('https://www.pixelstalk.net/wp-content/uploads/images5/Cool-Green-and-Black-Wallpaper-HD.jpg');
+  
+  background-size: cover;
+  background-position: center;
+  padding: 20px;
+}
+
+h1 {
+  position: absolute;
+  top: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: bold;
+  margin: 0;
+  color:white
+}
+h3 {
+    color:white
+  }
+  
+
+
+
+a {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: #333;
+  text-decoration: none;
+  font-size: 16px;
+  padding: 15px;
+}
+#home, #option {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 16px;
+  text-decoration: none;
+  color:white;
+  margin-left: 10px;
+}
+
+#home {
+  right: 150px;
+}
+
+button {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 10px 5px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background-color: #3e8e41;
+}
+
+.upload-section {
+  flex: 0.55;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 20%;
+  margin-left: -150px;
+  width: 50px;
+}
+#predicted-emotion {
+    color: white;
+}
+
+.predictions-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.emotion-box {
+  width: 350px;
+  height: 350px;
+  padding: 40px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 120px;
+  margin-left: 300px;
+  /* background-color: aliceblue; */
+}
+
+.emotion-text {
+  margin-bottom: 20px;
+}
+
+.emotion-chart {
+  width: 50%;
+  height: 30%;
+}
+
+input[type="file"] {
+  margin-bottom: 10px;
+}
+
+audio {
+  margin-bottom: 20px;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <a href="home.html" id="home">Home Page</a>
+  <a href="option.html" id="option">option Page</a>
+  <h1>Upload Audio</h1>
+
+  <div class="upload-section">
+    <input type="file" name="audio" id="uploaded_audio" accept="audio/*">
+    <button id="upload-btn">Upload</button>
+    <br><br>
+    <audio id="uploaded-audio" controls></audio>
+    <div id="upload-predictions" class="predictions-section"></div>
+  </div>
+
+  <div class="predictions-section">
+    <div class="emotion-box">
+      <div id="predicted-emotion" class="emotion-text"></div>
+      <canvas id="emotionChart" class="emotion-chart"></canvas>
+    </div>
+  </div>
+
+<script>
+    const uploadedAudio = document.getElementById('uploaded_audio');
+const uploadedAudioElement = document.getElementById('uploaded-audio');
+
+uploadedAudio.addEventListener('change', function() {
+  const file = this.files[0];
+  const url = URL.createObjectURL(file);
+  uploadedAudioElement.src = url;
+  uploadedAudioElement.load();
+});
+    const uploadPredictionsDiv = document.getElementById('upload-predictions');
+    const emotionChartCanvas = document.getElementById('emotionChart');
+    const emotionChart = new Chart(emotionChartCanvas, {
+        type: 'pie',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Emotion Probability',
+                data: [],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            title: {
+                display: true,
+                text: 'Emotion Probabilities'
+            },
+            legend: {
+                position: 'right',
+                labels: {
+                    boxWidth: 10,
+                    fontSize: 14,
+                    padding: 20
+                }
+            }
+        }
+    });
+    const emotionMapping = {
+  0: 'Angry',
+  1: 'Calm',
+  2: 'Fearful',
+  3: 'Happy',
+  4: 'Neutral',
+  5: 'Sad',
+//   6: 'Surprise'
+};
+
+    document.getElementById('upload-btn').addEventListener('click', handleFileUpload);
+
+    function handleFileUpload() {
+    const file = document.getElementById('uploaded_audio').files[0];
+    if (file) {
+        const formData = new FormData();
+        formData.append('audio', file);
+
+        fetch('/predict', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Prediction data:', data); // Check the entire response object
+            const prediction = data.predictions;
+            console.log('Prediction:', prediction); // Verify the prediction value
+            updateEmotionChart(data.probabilities); // Update the chart data and labels first
+            displayPrediction(prediction); // Display the predicted emotion
+        })
+        .catch(error => {
+            console.error('Error uploading file:', error);
+        });
+    } else {
+        console.error('No file selected.');
+    }
+}
+
+    function displayPrediction(predictionIndex) {
+    const predictedEmotion = document.getElementById('predicted-emotion');
+    predictedEmotion.innerHTML = '<h3>Prediction:</h3>';
+    const predictionText = document.createElement('p');
+    predictionText.textContent = emotionMapping[predictionIndex];
+    predictedEmotion.appendChild(predictionText);
+}
+
+let currentEmotion = null;
+
+function updateEmotionChart(probabilities) {
+    emotionChart.data.labels = ['Angry', 'Calm', 'Fearful', 'Happy','Neutral', 'Sad'];
+    emotionChart.data.datasets[0].data = probabilities[0];
+    emotionChart.update();
+
+    const predictedEmotionIndex = probabilities[0].indexOf(Math.max(...probabilities[0]));
+    const predictedEmotion = emotionMapping[predictedEmotionIndex];
+
+    if (predictedEmotion !== currentEmotion) {
+        currentEmotion = predictedEmotion;
+        displayPrediction(predictedEmotionIndex);
+    }
+}
+
+</script>
+</body>
+</html>
